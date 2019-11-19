@@ -44,7 +44,7 @@ public class LoginScreen extends Widget {
     Login cur;
     Text error;
     IButton btn;
-    // Button statusbtn;
+    Button statusbtn;
     Button optbtn;
     private TextEntry user;
     OptWnd opts;
@@ -65,15 +65,14 @@ public class LoginScreen extends Widget {
         add(new Img(bg), Coord.z);
         optbtn = adda(new Button(100, "Options"), sz.x-110, 40, 0, 1);
        // new UpdateChecker().start();
-        add(new LoginList(200, 29), new Coord(0, 0));
-        // statusbtn = adda(new Button(200, "Initializing..."), sz.x-210, 80, 0, 1);
-        // StartUpdaterThread();
+        add(new LoginList(200, 29), new Coord(10, 10));
+        statusbtn = adda(new Button(200, "Initializing..."), sz.x-210, 80, 0, 1);
+        StartUpdaterThread();
         GameUI.swimon = false;
         GameUI.trackon = false;
         GameUI.crimeon = false;
     }
 
-    /*
     private void showChangeLog() {
         log = ui.root.add(new Window(new Coord(50, 50), "Changelog"), new Coord(100, 50));
         log.justclose = true;
@@ -100,7 +99,6 @@ public class LoginScreen extends Widget {
         }
         txt.setprog(0);
     }
-    */
 
     private static abstract class Login extends Widget {
         abstract Object[] data();
@@ -197,7 +195,7 @@ public class LoginScreen extends Widget {
     public class LoginList extends Listbox<LoginData> {
         private final Tex xicon = Text.render("\u2716", Color.RED, special).tex();
         private int hover = -1;
-        private final static int ITEM_HEIGHT = 26;
+        private final static int ITEM_HEIGHT = 20;
         private Coord lastMouseDown = Coord.z;
 
         public LoginList(int w, int h) {
@@ -251,7 +249,7 @@ public class LoginScreen extends Widget {
         @Override
         protected void drawitem(GOut g, LoginData item, int i) {
             if (hover == i) {
-                g.chcolor(64, 64, 64, 96);
+                g.chcolor(96, 96, 96, 255);
                 g.frect(Coord.z, g.sz);
                 g.chcolor();
             }
@@ -351,8 +349,7 @@ public class LoginScreen extends Widget {
         } else if (sender == opts) {
             opts.reqdestroy();
             opts = null;
-        } 
-        /*else if(sender == statusbtn) {
+        } else if(sender == statusbtn) {
         		Desktop desktop = Desktop.isDesktopSupported() ? Desktop.getDesktop() : null;
         		if(desktop != null && desktop.isSupported(Desktop.Action.BROWSE)) {
         			try {
@@ -361,9 +358,7 @@ public class LoginScreen extends Widget {
 						e.printStackTrace();
 					}
         		}
-        } 
-        */
-        else
+        } else
         	super.wdgmsg(sender, msg, args);
     }
 
@@ -400,11 +395,9 @@ public class LoginScreen extends Widget {
     protected void added() {
         presize();
         parent.setfocus(this);
-        /*
         if(Config.isUpdate){
             showChangeLog();
         }
-        */
     }
 
     public void draw(GOut g) {
@@ -426,7 +419,6 @@ public class LoginScreen extends Widget {
         return (super.type(k, ev));
     }
     
-/*
     private void StartUpdaterThread() {
         Thread statusupdaterthread = new Thread(new Runnable() {
             public void run() {
@@ -458,5 +450,4 @@ public class LoginScreen extends Widget {
         });
         statusupdaterthread.start();
 }
-*/
 }

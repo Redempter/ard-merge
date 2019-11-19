@@ -1,7 +1,4 @@
 build/*
-screenshots/*
+config.ini
 *.log
-*.bat
-*.sqlite
-*.json
-*.ini
+screenshots/*
