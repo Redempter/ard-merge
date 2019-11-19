@@ -305,7 +305,7 @@ public class LivestockManager extends ResizableWnd {
             hide();
             return true;
         }
-        return super.type(key, ev);
+        return super.keydown(ev);
     }
 
     public void chpanel(Panel p) {

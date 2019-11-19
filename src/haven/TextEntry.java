@@ -197,10 +197,6 @@ public class TextEntry extends SIWidget {
 	    onActivate.accept(text);
     }
 
-    public boolean type(char c, KeyEvent ev) {
-        return (buf.key(ev));
-    }
-
     public boolean keydown(KeyEvent e) {
         if(e.getKeyCode() == KeyEvent.VK_F1 || e.getKeyCode() == KeyEvent.VK_F2|| e.getKeyCode() == KeyEvent.VK_F3|| e.getKeyCode() == KeyEvent.VK_F4|| e.getKeyCode() == KeyEvent.VK_F5
                 || e.getKeyCode() == KeyEvent.VK_F6|| e.getKeyCode() == KeyEvent.VK_F7|| e.getKeyCode() == KeyEvent.VK_F8|| e.getKeyCode() == KeyEvent.VK_F9|| e.getKeyCode() == KeyEvent.VK_F10

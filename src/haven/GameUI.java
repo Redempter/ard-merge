@@ -103,8 +103,8 @@ public class GameUI extends ConsoleHost implements Console.Directory {
     public Window hidden, deleted, alerted, highlighted, gobspawner;
     public double prog = -1;
     private boolean afk = false;
-    @SuppressWarnings("unchecked")
-    public Indir<Resource>[] belt = new Indir[144];
+    public BeltSlot[] belt = new BeltSlot[144];
+    public Belt beltwdg = add(new NKeyBelt());
     public final Map<Integer, String> polowners = new HashMap<Integer, String>();
     public Bufflist buffs;
     public LocalMiniMap mmap;
@@ -133,6 +133,60 @@ public class GameUI extends ConsoleHost implements Console.Directory {
     public Thread DrinkThread;
     public CraftDBWnd craftwnd = null;
     public long inspectedgobid = 0;//used for attaching inspected qualities to gobs.
+
+    private static final OwnerContext.ClassResolver<BeltSlot> beltctxr = new OwnerContext.ClassResolver<BeltSlot>()
+	.add(Glob.class, slot -> slot.wdg().ui.sess.glob)
+	.add(Session.class, slot -> slot.wdg().ui.sess);
+    public class BeltSlot implements GSprite.Owner {
+	public final int idx;
+	public final Indir<Resource> res;
+	public final Message sdt;
+
+	public BeltSlot(int idx, Indir<Resource> res, Message sdt) {
+	    this.idx = idx;
+	    this.res = res;
+	    this.sdt = sdt;
+	}
+
+	private GSprite spr = null;
+	public GSprite spr() {
+	    GSprite ret = this.spr;
+	    if(ret == null)
+		ret = this.spr = GSprite.create(this, res.get(), Message.nil);
+	    return(ret);
+	}
+
+	public Resource getres() {return(res.get());}
+	public Random mkrandoom() {return(new Random(System.identityHashCode(this)));}
+	public <T> T context(Class<T> cl) {return(beltctxr.context(cl, this));}
+	private GameUI wdg() {return(GameUI.this);}
+    }
+
+    public abstract class Belt extends Widget {
+        public Belt(Coord sz) {
+            super(sz);
+        }
+
+        public void keyact(final int slot) {
+            if (map != null) {
+                Coord mvc = map.rootxlate(ui.mc);
+                if (mvc.isect(Coord.z, map.sz)) {
+                    map.delay(map.new Hittest(mvc) {
+                        protected void hit(Coord pc, Coord2d mc, MapView.ClickInfo inf) {
+                            Object[] args = {slot, 1, ui.modflags(), mc.floor(OCache.posres)};
+                            if (inf != null)
+                                args = Utils.extend(args, MapView.gobclickargs(inf));
+                            GameUI.this.wdgmsg("belt", args);
+                        }
+
+                        protected void nohit(Coord pc) {
+                            GameUI.this.wdgmsg("belt", slot, 1, ui.modflags());
+                        }
+                    });
+                }
+            }
+        }
+    }
 
     @RName("gameui")
     public static class $_ implements Factory {
@@ -173,6 +227,17 @@ public class GameUI extends ConsoleHost implements Console.Directory {
                 return (new Coord(GameUI.this.sz.x, Math.min(brpanel.c.y - 79, GameUI.this.sz.y - menupanel.sz.y)));
             }
         }, new Coord(1, 0)));
+
+        ulpanel = add(new Hidepanel("gui-ul", null, new Coord(-1, -1)));
+        umpanel = add(new Hidepanel("gui-um", null, new Coord(0, -1)) {
+            @Override
+            public Coord base() {
+                if (base != null)
+                    return base.get();
+                return new Coord(parent.sz.x / 2 - this.sz.x / 2, 0);
+            }
+        });
+        urpanel = add(new Hidepanel("gui-ur", null, new Coord(1, -1)));
 
         brpanel.add(new Img(Resource.loadtex("gfx/hud/brframe")), 0, 0);
         menupanel.add(new MainMenu(), 0, 0);
@@ -1149,7 +1214,14 @@ public class GameUI extends ConsoleHost implements Console.Directory {
             if (args.length < 2) {
                 belt[slot] = null;
             } else {
-                belt[slot] = ui.sess.getres((Integer) args[1]);
+                Indir<Resource> res = ui.sess.getres((Integer)args[1]);
+                Message sdt = Message.nil;
+                if(args.length > 2)
+                    sdt = new MessageBuf((byte[])args[2]);
+                belt[slot] = new BeltSlot(slot, res, sdt);
+
+                if (fbelt != null)
+                    fbelt.add(slot, belt[slot]);
             }
             if(slot <= 49)
                 nbelt.update(slot);
@@ -1252,11 +1324,45 @@ public class GameUI extends ConsoleHost implements Console.Directory {
             return RichText.render(tt, 0);
         }
 
-        @Override
-        public void click() {
-            action.run(ui.gui);
+        public boolean globtype(char key, KeyEvent ev) {
+            // shift + tab used to aggro closest
+            if (key == 9 && ev.isShiftDown())
+                return super.globtype(key, ev);
+
+            // ctrl + tab is used to rotate opponents
+            if (key == 9 && ev.isControlDown())
+                return true;
+
+            if (gkey.key().match(ev)) {
+                click();
+                return (true);
+            }
+            return (super.globtype(key, ev));
+        }
+
+        private RichText rtt = null;
+        public Object tooltip(Coord c, Widget prev) {
+            if(!checkhit(c))
+                return(null);
+            if((prev != this) || (rtt == null)) {
+                String tt = this.tt;
+                if(gkey.key() != KeyMatch.nil)
+                    tt += String.format(" ($col[255,255,0]{%s})", RichText.Parser.quote(gkey.key().name()));
+                if((rtt == null) || !rtt.text.equals(tt))
+                    rtt = RichText.render(tt, 0);
+            }
+            return(rtt.tex());
         }
     }
+
+    public static final KeyBinding kb_inv = KeyBinding.get("inv", KeyMatch.forcode(KeyEvent.VK_TAB, 0));
+    public static final KeyBinding kb_equ = KeyBinding.get("equ", KeyMatch.forchar('E', KeyMatch.C));
+    public static final KeyBinding kb_chr = KeyBinding.get("chr", KeyMatch.forchar('T', KeyMatch.C));
+    public static final KeyBinding kb_bud = KeyBinding.get("bud", KeyMatch.forchar('B', KeyMatch.C));
+    public static final KeyBinding kb_opt = KeyBinding.get("opt", KeyMatch.forchar('O', KeyMatch.C));
+    public static final KeyBinding kb_dwn = KeyBinding.get("dwn", KeyMatch.forchar('S', KeyMatch.S));
+
+    private static final Tex menubg = Resource.loadtex("gfx/hud/rbtn-bg");
 
     public class MainMenu extends Widget {
         public MainMenu() {
@@ -1832,6 +1938,127 @@ public class GameUI extends ConsoleHost implements Console.Directory {
     }
 
     private static final Tex nkeybg = Resource.loadtex("gfx/hud/hb-main");
+
+    public class NKeyBelt extends Belt implements DTarget, DropTarget {
+        public int curbelt = 0;
+        final Coord pagoff = new Coord(5, 25);
+
+        public NKeyBelt() {
+            super(nkeybg.sz());
+            adda(new IButton("gfx/hud/hb-btn-chat", "", "-d", "-h") {
+                Tex glow;
+
+                {
+                    this.tooltip = RichText.render(Resource.getLocString(Resource.BUNDLE_LABEL, "Chat ($col[255,255,0]{Ctrl+C})"), 0);
+                    glow = new TexI(PUtils.rasterimg(PUtils.blurmask(up.getRaster(), 2, 2, Color.WHITE)));
+                }
+
+                public void click() {
+                    if (chat.targeth == 0) {
+                        chat.sresize(chat.savedh);
+                        setfocus(chat);
+                    } else {
+                        chat.sresize(0);
+                    }
+                    Utils.setprefb("chatvis", chat.targeth != 0);
+                }
+
+                public void draw(GOut g) {
+                    super.draw(g);
+                    Color urg = chat.urgcols[chat.urgency];
+                    if (urg != null) {
+                        GOut g2 = g.reclipl(new Coord(-2, -2), g.sz.add(4, 4));
+                        g2.chcolor(urg.getRed(), urg.getGreen(), urg.getBlue(), 128);
+                        g2.image(glow, Coord.z);
+                    }
+                }
+            }, sz, 1, 1);
+        }
+
+        private Coord beltc(int i) {
+            return (pagoff.add(((invsq.sz().x + 2) * i) + (10 * (i / 5)), 0));
+        }
+
+        private int beltslot(Coord c) {
+            for (int i = 0; i < 10; i++) {
+                if (c.isect(beltc(i), invsq.sz()))
+                    return (i + (curbelt * 12));
+            }
+            return (-1);
+        }
+
+        public void draw(GOut g) {
+            g.image(nkeybg, Coord.z);
+            for (int i = 0; i < 10; i++) {
+                int slot = i + (curbelt * 12);
+                Coord c = beltc(i);
+                g.image(invsq, beltc(i));
+                try {
+                    if(belt[slot] != null)
+                        belt[slot].spr().draw(g.reclip(c.add(1, 1), invsq.sz().sub(2, 2)));
+                } catch (Loading e) {
+                }
+                g.chcolor(FBelt.keysClr);
+                FastText.aprint(g, new Coord(c.x + invsq.sz().x - 2, c.y + invsq.sz().y), 1, 1, "" + (i + 1));
+                g.chcolor();
+            }
+            super.draw(g);
+        }
+
+        public boolean mousedown(Coord c, int button) {
+            int slot = beltslot(c);
+            if (slot != -1) {
+                if (button == 1)
+                    GameUI.this.wdgmsg("belt", slot, 1, ui.modflags());
+                if (button == 3)
+                    GameUI.this.wdgmsg("setbelt", slot, 1);
+                return (true);
+            }
+            return (super.mousedown(c, button));
+        }
+
+        public boolean globtype(char key, KeyEvent ev) {
+            int c = ev.getKeyChar();
+            if((c < KeyEvent.VK_0) || (c > KeyEvent.VK_9))
+                return (false);
+
+            int i = Utils.floormod(c - KeyEvent.VK_0 - 1, 10);
+            boolean M = (ev.getModifiersEx() & (KeyEvent.META_DOWN_MASK | KeyEvent.ALT_DOWN_MASK)) != 0;
+            if (M) {
+                curbelt = i;
+            } else {
+                keyact(i + (curbelt * 12));
+            }
+            return (true);
+        }
+
+        public boolean drop(Coord c, Coord ul) {
+            int slot = beltslot(c);
+            if (slot != -1) {
+                GameUI.this.wdgmsg("setbelt", slot, 0);
+                return (true);
+            }
+            return (false);
+        }
+
+        public boolean iteminteract(Coord c, Coord ul) {
+            return (false);
+        }
+
+        public boolean dropthing(Coord c, Object thing) {
+            int slot = beltslot(c);
+            if (slot != -1) {
+                if (thing instanceof Resource) {
+                    Resource res = (Resource) thing;
+                    if (res.layer(Resource.action) != null) {
+                        GameUI.this.wdgmsg("setbelt", slot, res.name);
+                        return (true);
+                    }
+                }
+            }
+            return (false);
+        }
+    }
 
     private Map<String, Console.Command> cmdmap = new TreeMap<String, Console.Command>();
     {

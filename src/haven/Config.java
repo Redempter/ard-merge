@@ -182,7 +182,6 @@ public class Config {
     public static boolean disablegatekeybind =  Utils.getprefb("disablegatekeybind", false);
     public static boolean disablecartkeybind =  Utils.getprefb("disablecartkeybind", true);
     public static boolean autologout =  Utils.getprefb("autologout", false);
-    public static int combatkeys =  Utils.getprefi("combatkeys", 0);
     public static boolean logcombatactions =  Utils.getprefb("logcombatactions", false);
     public static boolean autopickmussels =  Utils.getprefb("autopickmussels", false);
     public static boolean autopickclay =  Utils.getprefb("autopickclay", true);

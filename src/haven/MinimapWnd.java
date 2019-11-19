@@ -132,6 +132,121 @@ public class MinimapWnd extends ResizableWnd {
         super.resize(sz);
         minimap.sz = asz.sub(0, header);
     }
+
+    @Override
+    public void uimsg(String msg, Object... args) {
+        if (msg == "pack") {
+            pack();
+        } else if (msg == "dt") {
+            return;
+        } else if (msg == "cap") {
+            return;
+        } else {
+            super.uimsg(msg, args);
+        }
+    }
+
+    @Override
+    public Coord xlate(Coord c, boolean in) {
+        if (in)
+            return (c.add(tlm));
+        else
+            return (c.sub(tlm));
+    }
+
+    @Override
+    public boolean mousedown(Coord c, int button) {
+        if (!minimized && c.x > sz.x - 20 && c.y > sz.y - 15) {
+            doff = c;
+            dm = ui.grabmouse(this);
+            resizing = true;
+            return true;
+        }
+
+        if (!minimized) {
+            parent.setfocus(this);
+            raise();
+        }
+
+        if (super.mousedown(c, button)) {
+            parent.setfocus(this);
+            raise();
+            return true;
+        }
+
+        if (c.isect(tlm, asz)) {
+            if (button == 1) {
+                dm = ui.grabmouse(this);
+                doff = c;
+            }
+            parent.setfocus(this);
+            raise();
+            return true;
+        }
+        return false;
+    }
+
+    @Override
+    public void mousemove(Coord c) {
+        if (resizing && dm != null) {
+            Coord d = c.sub(doff);
+            doff = c;
+            mmap.sz.x = Math.max(mmap.sz.x + d.x, minsz.x);
+            mmap.sz.y = Math.max(mmap.sz.y + d.y, minsz.y);
+            pack();
+            Utils.setprefc("mmapwndsz", sz);
+            Utils.setprefc("mmapsz", mmap.sz);
+        } else {
+            if (dm != null) {
+                this.c = this.c.add(c.add(doff.inv()));
+                if (this.c.x < 0)
+                    this.c.x = 0;
+                if (this.c.y < 0)
+                    this.c.y = 0;
+                Coord gsz = gameui().sz;
+                if (this.c.x + sz.x > gsz.x)
+                    this.c.x = gsz.x - sz.x;
+                if (this.c.y + sz.y > gsz.y)
+                    this.c.y = gsz.y - sz.y;
+            } else {
+                super.mousemove(c);
+            }
+        }
+    }
+
+    @Override
+    public boolean mouseup(Coord c, int button) {
+        resizing = false;
+
+        if (dm != null) {
+            Utils.setprefc("mmapc", this.c);
+            dm.remove();
+            dm = null;
+        } else {
+            return super.mouseup(c, button);
+        }
+        return true;
+    }
+
+    @Override
+    public void wdgmsg(Widget sender, String msg, Object... args) {
+        if (sender == cbtn) {
+            minimize();
+        } else {
+            super.wdgmsg(sender, msg, args);
+        }
+    }
+
+    @Override
+    public boolean keydown(KeyEvent ev) {
+        int key = ev.getKeyCode();
+        if (key == KeyEvent.VK_ESCAPE) {
+            wdgmsg(cbtn, "click");
+            return (true);
+        }
+        return (super.keydown(ev));
+    }
+
     private void minimize() {
         minimized = !minimized;
         if (minimized) {

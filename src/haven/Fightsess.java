@@ -58,8 +58,6 @@ public class Fightsess extends Widget {
     private double lastuse, now = 0;
     private Fightview fv;
     private final Tex[] keystex = new Tex[10];
-    private final Tex[] keysftex = new Tex[10];
-    private final Tex[] keysfftex = new Tex[10];
 
     private static final Map<String, Color> openings = new HashMap<String, Color>(4) {{
         put("paginae/atk/dizzy",new Color(8, 103, 136));
@@ -94,14 +92,8 @@ public class Fightsess extends Widget {
         pho = -40;
         this.actions = new Action[nact];
 
-        for(int i = 0; i < 10; i++) {
-            keystex[i] = Text.renderstroked(FightWnd.keys[i], Color.WHITE, Color.BLACK, Text.num12boldFnd).tex();
-            if (i < 5)
-                keysftex[i] = keystex[i];
-            else
-                keysftex[i] = Text.renderstroked(FightWnd.keysf[i - 5], Color.WHITE, Color.BLACK, Text.num12boldFnd).tex();
-            keysfftex[i] = Text.renderstroked(FightWnd.keysf[i], Color.WHITE, Color.BLACK, Text.num12boldFnd).tex();
-        }
+        for(int i = 0; i < 10; i++)
+            keystex[i] = Text.renderstroked(kb_acts[i].key().nameShort(), Color.WHITE, Color.BLACK, Text.num12boldFnd).tex();
     }
 
     protected void added() {
@@ -173,12 +165,7 @@ public class Fightsess extends Widget {
 
     private static Coord actc(int i) {
         int rl = 5;
-
-        int row = i / rl;
-        if (Config.combatkeys == 1)
-            row ^= 1;
-
-        return(new Coord((actpitch * (i % rl)) - (((rl - 1) * actpitch) / 2), 125 + (row * actpitch)));
+        return(new Coord((actpitch * (i % rl)) - (((rl - 1) * actpitch) / 2), 125 + ((i / rl) * actpitch)));
     }
 
     private static final Coord cmc = new Coord(0, 67);
@@ -486,7 +473,9 @@ public class Fightsess extends Widget {
                     Tex img = act.get().layer(Resource.imgc).tex();
                     ca = ca.sub(img.sz().div(2));
                     if (c.isect(ca, img.sz())) {
-                        String tip = act.get().layer(Resource.tooltip).t + " ($b{$col[255,128,0]{" + keytips[i] + "}})";
+                        String tip = act.get().layer(Resource.tooltip).t;
+                        if(kb_acts[i].key() != KeyMatch.nil)
+                            tip += " ($b{$col[255,128,0]{" + kb_acts[i].key().name() + "}})";
                         if((acttip == null) || !acttip.text.equals(tip))
                             acttip = RichText.render(tip, -1);
                         return(acttip);
@@ -660,5 +649,21 @@ public class Fightsess extends Widget {
         return (true);
         else
         return(super.globtype(key, ev));
+    }
+
+    public boolean keydown(KeyEvent ev) {
+        return(false);
+    }
+
+    public boolean keyup(KeyEvent ev) {
+        if((holdgrab != null) && (kb_acts[held].key().match(ev, KeyMatch.MODS))) {
+            MapView map = getparent(GameUI.class).map;
+            map.delay(new Release(held));
+            holdgrab.remove();
+            holdgrab = null;
+            held = -1;
+            return(true);
+        }
+        return(false);
     }
 }

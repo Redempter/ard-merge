@@ -416,7 +416,7 @@ public class LoginScreen extends Widget {
             }
             return (true);
         }
-        return (super.type(k, ev));
+        return(super.keydown(ev));
     }
     
     private void StartUpdaterThread() {

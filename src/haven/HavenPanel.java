@@ -48,7 +48,7 @@ import java.util.*;
 import javax.media.opengl.*;
 import javax.media.opengl.awt.*;
 
-public class HavenPanel extends GLCanvas implements Runnable, Console.Directory {
+public class HavenPanel extends GLCanvas implements Runnable, Console.Directory, UI.Context  {
     UI ui;
     public static UI lui;
     boolean inited = false;
@@ -316,7 +316,7 @@ public class HavenPanel extends GLCanvas implements Runnable, Console.Directory 
     UI newui(Session sess) {
         if (ui != null)
             ui.destroy();
-        ui = new UI(new Coord(w, h), sess);
+        ui = new UI(this, new Coord(w, h), sess);
         ui.root.guprof = uprof;
         ui.root.grprof = rprof;
         ui.root.ggprof = gprof;
@@ -421,7 +421,7 @@ public class HavenPanel extends GLCanvas implements Runnable, Console.Directory 
             g.image(tt, pos);
         }
         ui.lasttip = tooltip;
-        Resource curs = ui.root.getcurs(mousepos);
+        Resource curs = ui.getcurs(mousepos);
         if (cursmode == "awt") {
             if (curs != lastcursor) {
                 try {
@@ -502,6 +502,7 @@ public class HavenPanel extends GLCanvas implements Runnable, Console.Directory 
             gl.setSwapInterval((aswap = iswap) ? 1 : 0);
     }
 
+    private KeyEvent lastpress = null;
     void dispatch() {
         synchronized (events) {
             if (mousemv != null) {
@@ -523,11 +524,37 @@ public class HavenPanel extends GLCanvas implements Runnable, Console.Directory 
                 } else if (e instanceof KeyEvent) {
                     KeyEvent ke = (KeyEvent) e;
                     if (ke.getID() == KeyEvent.KEY_PRESSED) {
+                        InputEvent ne = events.peek();
+                        if(ne instanceof KeyEvent) {
+                            /* This is an extension of the below hack
+                             * to handle dead keys (on Windows). It's
+                             * extremely ugly and error-prone and
+                             * should be dealt with, but I've no idea
+                             * what the alternative would be.*/
+                            KeyEvent nke = (KeyEvent)ne;
+                            if((nke.getID() == KeyEvent.KEY_TYPED) && (nke.getWhen() == ke.getWhen())) {
+                                ke.setKeyChar(nke.getKeyChar());
+                                events.remove();
+                            }
+                        }
                         ui.keydown(ke);
+                        lastpress = ke;
                     } else if (ke.getID() == KeyEvent.KEY_RELEASED) {
                         ui.keyup(ke);
                     } else if (ke.getID() == KeyEvent.KEY_TYPED) {
-                        ui.type(ke);
+                        KeyEvent lp = lastpress;
+                        if((lp != null) && (lp.getKeyChar() == ke.getKeyChar())) {
+                            /* Squelch this event. It certainly is an
+                             * ugly hack, but I just haven't found any
+                             * other way to disambiguate these
+                             * duplicate events. Also, apparently
+                             * getWhen() cannot be completely trusted
+                             * to have the same value for a
+                             * KEY_PRESSED and corresponding KEY_TYPED
+                             * event.*/
+                        } else {
+                            ui.keydown(ke);
+                        }
                     }
                 }
                 ui.lastevent = Utils.rtime();
@@ -692,6 +719,21 @@ public class HavenPanel extends GLCanvas implements Runnable, Console.Directory 
 
     public GraphicsConfiguration getconf() {
         return (getGraphicsConfiguration());
+    }
+
+    private Robot awtrobot;
+    public void setmousepos(Coord c) {
+        java.awt.EventQueue.invokeLater(() -> {
+            if(awtrobot == null) {
+                try {
+                    awtrobot = new Robot(getGraphicsConfiguration().getDevice());
+                } catch(java.awt.AWTException e) {
+                    return;
+                }
+            }
+            Point rp = getLocationOnScreen();
+            awtrobot.mouseMove(rp.x + c.x, rp.y + c.y);
+        });
     }
 
     private Map<String, Console.Command> cmdmap = new TreeMap<String, Console.Command>();

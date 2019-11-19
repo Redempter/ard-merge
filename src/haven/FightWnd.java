@@ -523,15 +523,9 @@ public class FightWnd extends Widget {
         }
 
         final Tex[] keystex = new Tex[10];
-        final Tex[] keysftex = new Tex[10];
         {
-            for(int i = 0; i < 10; i++) {
-                keystex[i] = Text.render(FightWnd.keys[i]).tex();
-                if (i < 5)
-                    keysftex[i] = keystex[i];
-                else
-                    keysftex[i] = Text.render(FightWnd.keysf[i - 5]).tex();
-            }
+            for(int i = 0; i < 10; i++)
+                keystex[i] = Text.render(Fightsess.kb_acts[i].key().nameShort()).tex();
         }
 
         final Tex[] keysfftex = new Tex[10];
@@ -920,12 +914,12 @@ public class FightWnd extends Widget {
                     }
 
                     @Override
-                    public boolean type(char key, KeyEvent ev) {
-                        if (key == 27) {
+                    public boolean keydown(KeyEvent ev) {
+                        if (ev.getKeyChar() == 27) {
                             reqdestroy();
                             return true;
                         }
-                        return super.type(key, ev);
+                        return super.keydown(ev);
                     }
                 };
                 GameUI gui = gameui();

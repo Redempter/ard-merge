@@ -53,11 +53,12 @@ public class Fightview extends Widget {
     public double atkcs, atkct;
     public Indir<Resource> lastact = null;
     public double lastuse = 0;
+    public boolean invalid = false;
     public double atkcd;
     public GiveButton curgive;
     private Avaview curava;
     private Button curpurs;
-    public final Bufflist buffs = add(new Bufflist());
+
     private static final Gob.Overlay curol = new Gob.Overlay(new FightCurrentOpp());
     {
         buffs.hide();
@@ -74,6 +75,7 @@ public class Fightview extends Widget {
         {
             buffs.hide();
         }
+        public final Bufflist relbuffs = add(new Bufflist()); {relbuffs.hide();}
         public int ip, oip;
         public Indir<Resource> lastact = null;
         public double lastuse = 0;
@@ -101,6 +103,9 @@ public class Fightview extends Widget {
             ui.destroy(ava);
             ui.destroy(give);
             ui.destroy(purs);
+            ui.destroy(buffs);
+            ui.destroy(relbuffs);
+            invalid = true;
         }
 
         public void use(Indir<Resource> act) {
@@ -245,9 +250,44 @@ public class Fightview extends Widget {
             else
                 p = getrel((Integer) args[1]).buffs;
             p.addchild(child);
+        } else if(args[0].equals("relbuff")) {
+            getrel((Integer)args[1]).relbuffs.addchild(child);
         } else {
             super.addchild(child, args);
         }
+    }
+
+    /* XXX? It's a bit ugly that there's no trimming of obinfo, but
+     * it's not obvious that one really ever wants it trimmed, and
+     * it's really not like it uses a lot of memory. */
+    public Widget obinfo(long gobid, boolean creat) {
+        synchronized(obinfo) {
+            Widget ret = obinfo.get(gobid);
+            if((ret == null) && creat)
+                obinfo.put(gobid, ret = new AWidget());
+            return(ret);
+        }
+    }
+
+    public <T extends Widget> T obinfo(long gobid, Class<T> cl, boolean creat) {
+        Widget cnt = obinfo(gobid, creat);
+        if(cnt == null)
+            return(null);
+        T ret = cnt.getchild(cl);
+        if((ret == null) && creat) {
+            try {
+                ret = Utils.construct(cl.getConstructor());
+            } catch(NoSuchMethodException e) {
+                throw(new RuntimeException(e));
+            }
+            cnt.add(ret);
+        }
+        return(ret);
+    }
+
+    public static interface ObInfo {
+        public default int prio() {return(1000);}
+        public default Coord2d grav() {return(new Coord2d(0, 1));}
     }
 
     private void setcur(Relation rel) {
@@ -286,6 +326,15 @@ public class Fightview extends Widget {
     public void destroy() {
         setcur(null);
         super.destroy();
+    }
+
+    public void tick(double dt) {
+        super.tick(dt);
+        for(Relation rel : lsrel) {
+            Widget inf = obinfo(rel.gobid, false);
+            if(inf != null)
+                inf.tick(dt);
+        }
     }
 
     public void draw(GOut g) {
